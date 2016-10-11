@@ -11,6 +11,7 @@ from matplotlib.backends.backend_qt5agg import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import *
 from scipy.optimize import leastsq
+#hiahiahia
 
 class MDO_MainWindow(QWidget):
     def __init__(self,parent=None):
