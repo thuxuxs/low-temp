@@ -10,16 +10,31 @@ from matplotlib.backends.backend_qt5agg import (
     NavigationToolbar2QT as NavigationToolbar)
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import *
+from PyQt5.QtGui  import *
+from PyQt5.Qt import *
+from PyQt5.QtCore import *
+# import visa
+
 from scipy.optimize import leastsq
-#hiahiahia
-#this one is real
 
 class MDO_MainWindow(QWidget):
-    def __init__(self,parent=None):
+    def __init__(self,parent=None,GPIB=None):
         QWidget.__init__(self,parent)
         self.setWindowTitle('MDO')
+        self.GPIB=GPIB
         self.resize(1000,500)
         self.create_ui()
+
+
+    def get_init_state(self):
+        self.inst=visa.ResourceManager().open_resource(self.GPIB)
+        self.ch_state=[0,0,0,0]
+        for ch in range(4):
+            self.ch_state[ch]=int(str(self.inst.ask('select:ch'+str(ch+1)+'?')).split(' ')[1])
+        self.ch_color=['y','b','r','g']
+
+
+
 
     def create_ui(self):
         self.create_widget_plot()
@@ -34,7 +49,7 @@ class MDO_MainWindow(QWidget):
 
         self.fig_plot = plt.figure(figsize=(9,6), dpi=65)
         self.fig_plot.patch.set_color('w')
-        self.ax_plot = self.fig_plot.add_axes([0, 0, 1, 1], axisbg=(0.12843, 0.3098, 0.3098))
+        self.ax_plot = self.fig_plot.add_axes([0, 0, 1, 1], axisbg=(0.6, 0.7, 0.8))
         # self.ax_plot.hold(False)
         self.fit_line,=self.ax_plot.plot([],[])
 
@@ -42,7 +57,7 @@ class MDO_MainWindow(QWidget):
         self.canvas_plot.setParent(self.widget_plot)
         self.canvas_plot.show()
         self.mpl_toolbar = NavigationToolbar(self.canvas_plot, self.widget_plot)
-        self.mpl_toolbar.setStyleSheet("border:none;background-color:#212121")
+        self.mpl_toolbar.setStyleSheet("border:none;background-color:#efefef")
 
         self.ch1_label=QLabel('CH1')
         self.ch2_label=QLabel('CH2')
@@ -119,7 +134,7 @@ class MDO_MainWindow(QWidget):
     def create_fit_plot(self):
         self.fig_fit = plt.figure(figsize=(5,4), dpi=65)
         self.fig_fit.patch.set_color('w')
-        self.ax_fit = self.fig_fit.add_axes([0, 0, 1, 1], axisbg=(0.12843, 0.3098, 0.3098))
+        self.ax_fit = self.fig_fit.add_axes([0, 0, 1, 1], axisbg=(0.6, 0.7, 0.8))
 
         self.ax_fit.plot(pl.linspace(0, 6, 100), pl.sin(pl.linspace(0, 6, 100)))
 
