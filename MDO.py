@@ -12,6 +12,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import *
 from scipy.optimize import leastsq
 #hiahiahia
+#this one is real
 
 class MDO_MainWindow(QWidget):
     def __init__(self,parent=None):
