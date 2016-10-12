@@ -37,28 +37,44 @@ class MDO_MainWindow(QWidget):
         self.resize(1000, 500)
         self.create_ui()
         self.get_init_state()
+        self.update_data()
 
     def ask_ch_state(self):
         self.ch_state = [0, 0, 0, 0]
         for ch in range(4):
             self.ch_state[ch] = int(str(self.inst.ask('select:ch' + str(ch + 1) + '?')).split(' ')[1])
 
+    def synchronize_state(self):
+        for i in range(4):
+            if self.ch_state[i] == 1:
+                self.ch_cb_grounp[i].setCheckState(Qt.Checked)
+            else:
+                self.ch_cb_grounp[i].setCheckState(Qt.Unchecked)
+
     def get_init_state(self):
         self.inst = visa.ResourceManager().open_resource(self.GPIB)
         self.ch_color = ['y', 'b', 'r', 'g']
         self.ask_ch_state()
+        self.synchronize_state()
 
     def get_data(self,ch):
         #self.inst.write('DATA:SOURCE CH'+str(ch+1))
         return self.inst.query_binary_values('DATA:SOURCE CH'+str(ch+1)+';:CURVe?', datatype='b', is_big_endian=True)
 
-    def run_thread(self,ch):
+    def update_data(self):
         self.ax_plot.clear()
-        self.y=self.get_data(ch)
-        self.x=np.array(range(len(self.y)))
-        self.ax_plot.plot(self.x,self.y)
         self.ax_plot.set_xlim(0,9999)
         self.ax_plot.set_ylim(-127,128)
+        # self.xincr = float(str(self.inst.ask('DATA:SOURCE CH1;:WFMOutpre:xincr?')).split(' ')[1])
+        # print self.xincr
+
+        # for state in range(4):
+        #     if self.ch_state[state] == 1:
+        #         self.ax_plot.plot()
+        # self.y=self.get_data(ch)
+        # self.x=np.array(range(len(self.y)))
+        # self.ax_plot.plot(self.x,self.y)
+
         # self.canvas_fit.draw()
 
     def create_ui(self):
@@ -66,6 +82,7 @@ class MDO_MainWindow(QWidget):
         self.create_widget_control()
         self.create_fit_result()
         self.create_fit_plot()
+        self.connect_event()
 
     def create_widget_plot(self):
         self.widget_plot = QWidget(self)
@@ -74,9 +91,8 @@ class MDO_MainWindow(QWidget):
 
         self.fig_plot = Figure(figsize=(9, 6), dpi=65)
         self.fig_plot.patch.set_color('w')
-        self.ax_plot = self.fig_plot.add_axes([0.2, 0.2, 0.7, 0.7], axisbg=(0.6, 0.7, 0.8))
-        # self.ax_plot.hold(False)
-        # self.fit_line, = self.ax_plot.plot([], [])
+        self.ax_plot = self.fig_plot.add_axes([0, 0, 1, 1], axisbg=(0.6, 0.7, 0.8))
+
 
         self.canvas_plot = FigureCanvas(self.fig_plot)
         self.canvas_plot.setParent(self.widget_plot)
@@ -176,15 +192,21 @@ class MDO_MainWindow(QWidget):
         self.file_fit_file = QPushButton('file', self)
         self.file_fit_file.move(675, 465)
         self.file_fit_file.resize(40, 24)
-        self.file_fit_file.clicked.connect(self.select_file_plot)
         self.fit_type1 = QPushButton('Lorentz-1', self)
         self.fit_type1.move(720, 465)
-        self.fit_type1.clicked.connect(self.lorentz_1_btn)
         self.fit_type2 = QPushButton('Lorentz-2', self)
         self.fit_type2.move(800, 465)
-        self.fit_type2.clicked.connect(self.lorentz_2_btn)
         self.fit_type3 = QPushButton('Lorentz-3', self)
         self.fit_type3.move(880, 465)
+
+    def connect_event(self):
+        self.ch1_cb.clicked.connect(lambda: self.ch_cb_changed(0))
+        self.ch2_cb.clicked.connect(lambda: self.ch_cb_changed(1))
+        self.ch3_cb.clicked.connect(lambda: self.ch_cb_changed(2))
+        self.ch4_cb.clicked.connect(lambda: self.ch_cb_changed(3))
+        self.file_fit_file.clicked.connect(self.select_file_plot)
+        self.fit_type1.clicked.connect(lambda: self.lorentz_btn(0))
+        self.fit_type2.clicked.connect(lambda: self.lorentz_btn(1))
 
     def read_data_from_file(self, file_name, type=1):
         '''
@@ -296,18 +318,19 @@ class MDO_MainWindow(QWidget):
             self.ax_plot.set_ylim(min(self.y), max(self.y))
             self.fig_plot.canvas.draw()
 
-    def lorentz_1_btn(self):
+    def lorentz_btn(self, i):
         try:
-            self.plot_fit_result(0)
+            self.plot_fit_result(i)
         except:
             pass
 
-    def lorentz_2_btn(self):
-        try:
-            self.plot_fit_result(1)
-        except:
-            pass
-
+    def ch_cb_changed(self, ch):
+        print ch, self.ch_cb_grounp[ch].isChecked()
+        if self.ch_cb_grounp[ch].isChecked():
+            state = 1
+        else:
+            state = 0
+        self.inst.write('select:ch' + str(ch + 1) + ' ' + str(state))
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
