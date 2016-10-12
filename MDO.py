@@ -14,9 +14,20 @@ from PyQt5.QtGui import *
 from PyQt5.Qt import *
 from PyQt5.QtCore import *
 import visa
+import time
 
 from scipy.optimize import leastsq
 
+class MDO_ChPlot_Thread(QThread):
+    def __init__(self,mdo,ch,parent=None):
+        super(MDO_ChPlot_Thread, self).__init__(parent)
+        self.ch=ch
+        self.mdo=mdo
+
+    def run(self):
+        while True:
+            self.mdo.run_thread(self.ch)
+            time.sleep(0.1)
 
 class MDO_MainWindow(QWidget):
     def __init__(self, parent=None, GPIB=None):
@@ -25,13 +36,30 @@ class MDO_MainWindow(QWidget):
         self.GPIB = GPIB
         self.resize(1000, 500)
         self.create_ui()
+        self.get_init_state()
 
-    def get_init_state(self):
-        self.inst = visa.ResourceManager().open_resource(self.GPIB)
+    def ask_ch_state(self):
         self.ch_state = [0, 0, 0, 0]
         for ch in range(4):
             self.ch_state[ch] = int(str(self.inst.ask('select:ch' + str(ch + 1) + '?')).split(' ')[1])
+
+    def get_init_state(self):
+        self.inst = visa.ResourceManager().open_resource(self.GPIB)
         self.ch_color = ['y', 'b', 'r', 'g']
+        self.ask_ch_state()
+
+    def get_data(self,ch):
+        #self.inst.write('DATA:SOURCE CH'+str(ch+1))
+        return self.inst.query_binary_values('DATA:SOURCE CH'+str(ch+1)+';:CURVe?', datatype='b', is_big_endian=True)
+
+    def run_thread(self,ch):
+        self.ax_plot.clear()
+        self.y=self.get_data(ch)
+        self.x=np.array(range(len(self.y)))
+        self.ax_plot.plot(self.x,self.y)
+        self.ax_plot.set_xlim(0,9999)
+        self.ax_plot.set_ylim(-127,128)
+        # self.canvas_fit.draw()
 
     def create_ui(self):
         self.create_widget_plot()
@@ -44,11 +72,11 @@ class MDO_MainWindow(QWidget):
         self.vbox_plot = QVBoxLayout()
         self.hbox_plot = QHBoxLayout()
 
-        self.fig_plot = plt.figure(figsize=(9, 6), dpi=65)
+        self.fig_plot = Figure(figsize=(9, 6), dpi=65)
         self.fig_plot.patch.set_color('w')
-        self.ax_plot = self.fig_plot.add_axes([0, 0, 1, 1], axisbg=(0.6, 0.7, 0.8))
+        self.ax_plot = self.fig_plot.add_axes([0.2, 0.2, 0.7, 0.7], axisbg=(0.6, 0.7, 0.8))
         # self.ax_plot.hold(False)
-        self.fit_line, = self.ax_plot.plot([], [])
+        # self.fit_line, = self.ax_plot.plot([], [])
 
         self.canvas_plot = FigureCanvas(self.fig_plot)
         self.canvas_plot.setParent(self.widget_plot)
@@ -202,6 +230,11 @@ class MDO_MainWindow(QWidget):
         return y - self.lorentz_2(x, p)
 
     def to_freq(self, time_domain):
+        """
+        change the time_domain to frequency domain
+        :param time_domain: may be a number or a np list but can't be a list
+        :return: a number or a np list
+        """
         # time[0]=0
         lamb = 1434
         v = 1.3
@@ -254,18 +287,26 @@ class MDO_MainWindow(QWidget):
             self.data = self.read_data_from_file(self.selected_file, type=int(self.file_type.currentText()))
             self.x = self.data[:, 0]
             self.y = self.data[:, 1]
+            # print max(self.x),min(self.x)
+            # print max(self.y),min(self.y)
             self.ax_plot.clear()
             self.ax_plot.plot(self.x, self.y)
+            # self.fit_line.set_data(self.x,self.y)
             self.ax_plot.set_xlim(min(self.x), max(self.x))
             self.ax_plot.set_ylim(min(self.y), max(self.y))
-            self.canvas_plot.draw()
+            self.fig_plot.canvas.draw()
 
     def lorentz_1_btn(self):
-
-        self.plot_fit_result(0)
+        try:
+            self.plot_fit_result(0)
+        except:
+            pass
 
     def lorentz_2_btn(self):
-        self.plot_fit_result(1)
+        try:
+            self.plot_fit_result(1)
+        except:
+            pass
 
 
 class MainWindow(QMainWindow):
@@ -273,17 +314,16 @@ class MainWindow(QMainWindow):
         QMainWindow.__init__(self, parent)
         self.resize(200, 200)
         self.main_frame = QWidget()
-        hbox = QHBoxLayout()
+        vbox = QVBoxLayout()
         self.mdo1 = MDO_MainWindow(self.main_frame)
         self.mdo2 = MDO_MainWindow(self.main_frame)
-        hbox.addWidget(self.mdo1)
-        hbox.addWidget(self.mdo2)
-        self.main_frame.setLayout(hbox)
+        vbox.addWidget(self.mdo1)
+        vbox.addWidget(self.mdo2)
+        self.main_frame.setLayout(vbox)
         self.setCentralWidget(self.main_frame)
 
-
 MDO_GUI = QApplication(sys.argv)
-mainwindow = MDO_MainWindow()
+mainwindow = MDO_MainWindow(GPIB='USB0::0x0699::0x0454::C021335::INSTR')
 mainwindow.show()
 
 sys.exit(MDO_GUI.exec_())
