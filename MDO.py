@@ -48,12 +48,13 @@ class MDO_MainWindow(QWidget):
         for i in range(4):
             if self.ch_state[i] == 1:
                 self.ch_cb_grounp[i].setCheckState(Qt.Checked)
+                self.ch_label_group[i].setVisible(True)
             else:
                 self.ch_cb_grounp[i].setCheckState(Qt.Unchecked)
+                self.ch_label_group[i].setVisible(False)
 
     def get_init_state(self):
         self.inst = visa.ResourceManager().open_resource(self.GPIB)
-        self.ch_color = ['y', 'b', 'r', 'g']
         self.ask_ch_state()
         self.synchronize_state()
 
@@ -63,19 +64,22 @@ class MDO_MainWindow(QWidget):
 
     def update_data(self):
         self.ax_plot.clear()
-        self.ax_plot.set_xlim(0,9999)
-        self.ax_plot.set_ylim(-127,128)
-        # self.xincr = float(str(self.inst.ask('DATA:SOURCE CH1;:WFMOutpre:xincr?')).split(' ')[1])
-        # print self.xincr
+        self.ask_ch_state()
+        self.synchronize_state()
+        self.y_data = {}
+        for i in range(4):
+            if self.ch_state[i] == 1:
+                self.xincr = float(
+                    str(self.inst.ask('DATA:SOURCE CH' + str(i + 1) + ';:WFMOutpre:xincr?')).split(' ')[1])
+                self.xzero = float(str(self.inst.ask(':WFMOutpre:XZEro?')).split(' ')[1])
+                self.x = self.xzero + self.xincr * pl.linspace(0, 10000, 10000)
+                self.y_bite = self.get_data(i)
 
-        # for state in range(4):
-        #     if self.ch_state[state] == 1:
-        #         self.ax_plot.plot()
-        # self.y=self.get_data(ch)
-        # self.x=np.array(range(len(self.y)))
-        # self.ax_plot.plot(self.x,self.y)
+                self.ax_plot.plot(self.x, self.y_bite, self.ch_color[i])
 
-        # self.canvas_fit.draw()
+        self.ax_plot.set_xlim(self.x[0], self.x[-1])
+        self.ax_plot.set_ylim(-127, 128)
+        self.fig_plot.canvas.draw()
 
     def create_ui(self):
         self.create_widget_plot()
@@ -100,6 +104,7 @@ class MDO_MainWindow(QWidget):
         self.mpl_toolbar = NavigationToolbar(self.canvas_plot, self.widget_plot)
         self.mpl_toolbar.setStyleSheet("border:none;background-color:#efefef")
 
+        self.ch_color = ['y', 'b', 'r', 'g']
         self.ch1_label = QLabel('CH1')
         self.ch2_label = QLabel('CH2')
         self.ch3_label = QLabel('CH3')
@@ -133,9 +138,9 @@ class MDO_MainWindow(QWidget):
         for i in range(4):
             self.ch_cb_grounp[i].move(10 + i * 25, 5)
 
-        self.run_stop = QPushButton('STOP', self.widget_control)
-        self.run_stop.move(10, 60)
-        self.run_stop.resize(50, 24)
+        self.update_btn = QPushButton('SHOW', self.widget_control)
+        self.update_btn.move(10, 60)
+        self.update_btn.resize(50, 24)
         self.fit_mdo = QPushButton('FIT', self.widget_control)
         self.fit_mdo.move(80, 60)
         self.fit_mdo.resize(50, 24)
@@ -207,6 +212,7 @@ class MDO_MainWindow(QWidget):
         self.file_fit_file.clicked.connect(self.select_file_plot)
         self.fit_type1.clicked.connect(lambda: self.lorentz_btn(0))
         self.fit_type2.clicked.connect(lambda: self.lorentz_btn(1))
+        self.update_btn.clicked.connect(self.update_data)
 
     def read_data_from_file(self, file_name, type=1):
         '''
@@ -328,8 +334,10 @@ class MDO_MainWindow(QWidget):
         print ch, self.ch_cb_grounp[ch].isChecked()
         if self.ch_cb_grounp[ch].isChecked():
             state = 1
+            self.ch_label_group[ch].setVisible(True)
         else:
             state = 0
+            self.ch_label_group[ch].setVisible(False)
         self.inst.write('select:ch' + str(ch + 1) + ' ' + str(state))
 
 class MainWindow(QMainWindow):
