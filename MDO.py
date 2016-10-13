@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.Qt import *
 from PyQt5.QtCore import *
-import visa
+# import visa
 import time
 
 from scipy.optimize import leastsq
@@ -36,8 +36,8 @@ class MDO_MainWindow(QWidget):
         self.GPIB = GPIB
         self.resize(1000, 500)
         self.create_ui()
-        self.get_init_state()
-        self.update_data()
+        # self.get_init_state()
+        # self.update_data()
 
     def ask_ch_state(self):
         self.ch_state = [0, 0, 0, 0]
