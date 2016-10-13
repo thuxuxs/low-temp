@@ -13,21 +13,23 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.Qt import *
 from PyQt5.QtCore import *
-# import visa
+import visa
 import time
 
 from scipy.optimize import leastsq
 
+
 class MDO_ChPlot_Thread(QThread):
-    def __init__(self,mdo,ch,parent=None):
+    def __init__(self, mdo, ch, parent=None):
         super(MDO_ChPlot_Thread, self).__init__(parent)
-        self.ch=ch
-        self.mdo=mdo
+        self.ch = ch
+        self.mdo = mdo
 
     def run(self):
         while True:
             self.mdo.run_thread(self.ch)
             time.sleep(0.1)
+
 
 class MDO_MainWindow(QWidget):
     def __init__(self, parent=None, GPIB=None):
@@ -36,8 +38,8 @@ class MDO_MainWindow(QWidget):
         self.GPIB = GPIB
         self.resize(1000, 500)
         self.create_ui()
-        # self.get_init_state()
-        # self.update_data()
+        self.get_init_state()
+        self.update_data()
 
     def ask_ch_state(self):
         self.ch_state = [0, 0, 0, 0]
@@ -58,9 +60,10 @@ class MDO_MainWindow(QWidget):
         self.ask_ch_state()
         self.synchronize_state()
 
-    def get_data(self,ch):
-        #self.inst.write('DATA:SOURCE CH'+str(ch+1))
-        return self.inst.query_binary_values('DATA:SOURCE CH'+str(ch+1)+';:CURVe?', datatype='b', is_big_endian=True)
+    def get_data(self, ch):
+        # self.inst.write('DATA:SOURCE CH'+str(ch+1))
+        return self.inst.query_binary_values('DATA:SOURCE CH' + str(ch + 1) + ';:CURVe?', datatype='b',
+                                             is_big_endian=True)
 
     def update_data(self):
         self.ax_plot.clear()
@@ -96,7 +99,6 @@ class MDO_MainWindow(QWidget):
         self.fig_plot = Figure(figsize=(9, 6), dpi=65)
         self.fig_plot.patch.set_color('w')
         self.ax_plot = self.fig_plot.add_axes([0, 0, 1, 1], axisbg=(0.6, 0.7, 0.8))
-
 
         self.canvas_plot = FigureCanvas(self.fig_plot)
         self.canvas_plot.setParent(self.widget_plot)
@@ -160,6 +162,9 @@ class MDO_MainWindow(QWidget):
         self.v_plus.move(140, 60)
         self.v_minus.move(140, 90)
         self.h_slider = QSlider(self.widget_control)
+        self.h_slider.setMaximum(50)
+        self.h_slider.setMinimum(-50)
+        self.h_slider.setValue(0)
         self.v_slider = QSlider(self.widget_control)
         self.h_slider.setOrientation(Qt.Horizontal)
         self.h_slider.move(10, 150)
@@ -213,7 +218,9 @@ class MDO_MainWindow(QWidget):
         self.fit_type1.clicked.connect(lambda: self.lorentz_btn(0))
         self.fit_type2.clicked.connect(lambda: self.lorentz_btn(1))
         self.update_btn.clicked.connect(self.update_data)
-
+        self.h_plus.clicked.connect(lambda: self.hor_scal('+'))
+        self.h_minus.clicked.connect(lambda: self.hor_scal('-'))
+        self.h_slider.sliderReleased.connect(self.h_slider_release)
     def read_data_from_file(self, file_name, type=1):
         '''
         type 1: for data saved from floor 3;
@@ -331,7 +338,7 @@ class MDO_MainWindow(QWidget):
             pass
 
     def ch_cb_changed(self, ch):
-        print ch, self.ch_cb_grounp[ch].isChecked()
+        # print ch, self.ch_cb_grounp[ch].isChecked()
         if self.ch_cb_grounp[ch].isChecked():
             state = 1
             self.ch_label_group[ch].setVisible(True)
@@ -339,6 +346,26 @@ class MDO_MainWindow(QWidget):
             state = 0
             self.ch_label_group[ch].setVisible(False)
         self.inst.write('select:ch' + str(ch + 1) + ' ' + str(state))
+        self.update_data()
+
+    def hor_scal(self, vec):
+        print vec
+        if 1 in self.ch_state:
+            print 'DATA:SOURCE CH' + str(self.ch_state.index(1) + 1) + ';:HORizontal:SCAle?'
+            present = float(
+                str(self.inst.ask('DATA:SOURCE CH' + str(self.ch_state.index(1) + 1) + ';:HORizontal:SCAle?')).split(
+                    ' ')[1])
+            print present
+            if vec == '+':
+                scale = str(present / 2.0)
+            else:
+                scale = str(present * 2.0)
+            self.inst.write('HORizontal:SCAle ' + scale)
+            self.update_data()
+
+    def h_slider_release(self):
+        print self.h_slider.value()
+        self.h_slider.setValue(0)
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -352,6 +379,7 @@ class MainWindow(QMainWindow):
         vbox.addWidget(self.mdo2)
         self.main_frame.setLayout(vbox)
         self.setCentralWidget(self.main_frame)
+
 
 MDO_GUI = QApplication(sys.argv)
 mainwindow = MDO_MainWindow(GPIB='USB0::0x0699::0x0454::C021335::INSTR')
