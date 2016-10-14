@@ -24,8 +24,6 @@ except:
 else:
     mode = 'has_visa'
 
-
-
 class MDO_MainWindow(QWidget):
     def __init__(self, parent=None, GPIB=None):
         QWidget.__init__(self, parent)
@@ -470,7 +468,6 @@ class MDO_MainWindow(QWidget):
             self.ch_cb_grounp[event_value - 49].click()
         if event_value == Qt.Key_Q:
             sys.exit()
-
 
 if __name__=='__main__':
     MDO_GUI = QApplication(sys.argv)
