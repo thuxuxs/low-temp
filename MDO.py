@@ -1,5 +1,4 @@
 import sys
-
 import numpy as np
 import pylab as pl
 from matplotlib.figure import Figure
@@ -13,22 +12,18 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.Qt import *
 from PyQt5.QtCore import *
-import visa
 import time
-
+import datetime
 from scipy.optimize import leastsq
 
+global mode
+try:
+    import visa
+except:
+    mode = 'ont_has_visa'
+else:
+    mode = 'has_visa'
 
-class MDO_ChPlot_Thread(QThread):
-    def __init__(self, mdo, ch, parent=None):
-        super(MDO_ChPlot_Thread, self).__init__(parent)
-        self.ch = ch
-        self.mdo = mdo
-
-    def run(self):
-        while True:
-            self.mdo.run_thread(self.ch)
-            time.sleep(0.1)
 
 
 class MDO_MainWindow(QWidget):
@@ -36,11 +31,13 @@ class MDO_MainWindow(QWidget):
         QWidget.__init__(self, parent)
         self.setWindowTitle('MDO')
         # self.setWindowFlags(Qt.WindowDoesNotAcceptFocus)
+        # self.setFocusPolicy(Qt.NoFocus)
         self.GPIB = GPIB
         self.resize(1000, 500)
         self.create_ui()
-        self.get_init_state()
-        self.update_data()
+        if mode == 'has_visa':
+            self.get_init_state()
+            self.update_data()
 
     def ask_ch_state(self):
         self.ch_state = [0, 0, 0, 0]
@@ -82,9 +79,13 @@ class MDO_MainWindow(QWidget):
                 self.y_bite = self.get_data(i)
                 self.y_data['CH' + str(i + 1)] = self.yzero + self.ymult * np.array(self.y_bite)
                 self.ax_plot.plot(self.x, self.y_bite, self.ch_color[i])
-        print self.y_data.keys()
-        self.ax_plot.set_xlim(self.x[0], self.x[-1])
+        # print self.y_data.keys()
+        if 1 in self.ch_state:
+            self.ax_plot.set_xlim(self.x[0], self.x[-1])
         self.ax_plot.set_ylim(-127, 128)
+        self.ax_plot.set_xticks(self.xzero + self.xincr * pl.linspace(0, 10000, 11))
+        self.ax_plot.set_yticks(pl.linspace(-128, 128, 11))
+        self.ax_plot.grid(True)
         self.fig_plot.canvas.draw()
 
     def create_ui(self):
@@ -102,7 +103,6 @@ class MDO_MainWindow(QWidget):
         self.fig_plot = Figure(figsize=(9, 6), dpi=65)
         self.fig_plot.patch.set_color('w')
         self.ax_plot = self.fig_plot.add_axes([0, 0, 1, 1], axisbg=(0.6, 0.7, 0.8))
-
         self.canvas_plot = FigureCanvas(self.fig_plot)
         self.canvas_plot.setParent(self.widget_plot)
         self.canvas_plot.show()
@@ -169,6 +169,8 @@ class MDO_MainWindow(QWidget):
         self.h_slider.setMinimum(-50)
         self.h_slider.setValue(0)
         self.v_slider = QSlider(self.widget_control)
+        self.v_slider.setMaximum(200)
+        self.v_slider.setMinimum(-200)
         self.h_slider.setOrientation(Qt.Horizontal)
         self.h_slider.move(10, 150)
         self.v_slider.move(170, 60)
@@ -177,12 +179,16 @@ class MDO_MainWindow(QWidget):
         self.ch_which = QComboBox(self.widget_control)
         self.ch_which.move(140, 30)
         self.ch_which.resize(50, 24)
+        self.ch_which.setFocusPolicy(Qt.NoFocus)
+        self.ch_which.addItems(['CH1', 'CH2', 'CH3', 'CH4'])
 
     def create_fit_result(self):
-        self.fit_result_te = QTextEdit(self)
+        self.fit_result_te = QLabel(self)
         self.fit_result_te.setText('Q:7e8')
         self.fit_result_te.move(850, 10)
         self.fit_result_te.resize(115, 180)
+        self.fit_result_te.setAlignment(Qt.AlignLeading)
+        self.fit_result_te.setStyleSheet("color:red;font-size:18px;")
 
     def create_fit_plot(self):
         self.fig_fit = plt.figure(figsize=(5, 4), dpi=65)
@@ -211,6 +217,7 @@ class MDO_MainWindow(QWidget):
         self.fit_type2.move(800, 465)
         self.fit_type3 = QPushButton('Lorentz-3', self)
         self.fit_type3.move(880, 465)
+
     def connect_event(self):
         self.ch1_cb.clicked.connect(lambda: self.ch_cb_changed(0))
         self.ch2_cb.clicked.connect(lambda: self.ch_cb_changed(1))
@@ -223,12 +230,18 @@ class MDO_MainWindow(QWidget):
         self.h_plus.clicked.connect(lambda: self.hor_scal('+'))
         self.h_minus.clicked.connect(lambda: self.hor_scal('-'))
         self.h_slider.sliderReleased.connect(self.h_slider_release)
+        self.v_plus.clicked.connect(lambda: self.ver_scal('+'))
+        self.v_minus.clicked.connect(lambda: self.ver_scal('-'))
+        self.v_slider.sliderReleased.connect(self.v_slider_release)
+        self.fit_mdo.clicked.connect(self.fit_btn)
+        self.save.clicked.connect(self.save_btn)
 
     def read_data_from_file(self, file_name, type=1):
         '''
         type 1: for data saved from floor 3;
         type 2: for data saved from floor 2;
-        type 3: unknown type, input manually
+        type 3: for data save by this software;
+        type 4: unknown type, input manually
         '''
 
         data = pl.genfromtxt(file_name, delimiter=',')
@@ -237,6 +250,8 @@ class MDO_MainWindow(QWidget):
             data = data[20:, :]
         elif type == 2:
             data = data[:, -3:-1]
+        elif type == 3:
+            data = data[1:, :2]
         else:
             begin_row = input('begin row:')
             begin_column = input('begin column:')
@@ -349,22 +364,41 @@ class MDO_MainWindow(QWidget):
             state = 0
             self.ch_label_group[ch].setVisible(False)
         self.inst.write('select:ch' + str(ch + 1) + ' ' + str(state))
+        self.update_data()
 
+    def ver_scal(self, vec):
+        ch_name = self.ch_which.currentText()
+        if self.ch_state[self.ch_which.currentIndex()] == 1:
+            present = float(str(self.inst.ask(ch_name + ':scale?')).split(' ')[1])
+            if vec == '+':
+                scale = str(present / 2.0)
+            else:
+                scale = str(present * 2.0)
+            self.inst.write(ch_name + ':scale ' + scale)
+        time.sleep(0.1)
+        self.update_data()
 
     def hor_scal(self, vec):
-        # print vec
         if 1 in self.ch_state:
-            # print 'DATA:SOURCE CH' + str(self.ch_state.index(1) + 1) + ';:HORizontal:SCAle?'
             present = float(
                 str(self.inst.ask('DATA:SOURCE CH' + str(self.ch_state.index(1) + 1) + ';:HORizontal:SCAle?')).split(
                     ' ')[1])
-            # print present
             if vec == '+':
                 scale = str(present / 2.0)
             else:
                 scale = str(present * 2.0)
             self.inst.write('HORizontal:SCAle ' + scale)
+            time.sleep(0.1)
             self.update_data()
+
+    def v_slider_release(self):
+        ch_name = self.ch_which.currentText()
+        if self.ch_state[self.ch_which.currentIndex()] == 1:
+            present = float(str(self.inst.ask(ch_name + ':position?')).split(' ')[1])
+            self.inst.write(ch_name + ':position ' + str(present + self.v_slider.value() / 100.0))
+            time.sleep(0.1)
+            self.update_data()
+        self.v_slider.setValue(0)
 
     def h_slider_release(self):
         # print self.h_slider.value()
@@ -373,19 +407,67 @@ class MDO_MainWindow(QWidget):
                 str(self.inst.ask('DATA:SOURCE CH' + str(self.ch_state.index(1) + 1) + ';:Horizontal:position?')).split(
                     ' ')[1])
             self.inst.write('horizontal:delay:mode off;:Horizontal:position ' + str(present + self.h_slider.value()))
-            self.h_slider.setValue(0)
+            time.sleep(0.1)
             self.update_data()
+        self.h_slider.setValue(0)
+
+    def fit_btn(self):
+        if sum(self.ch_state) == 0:
+            ch_name = None
+        elif sum(self.ch_state) != 1:
+            ch_name = self.ch_which.currentText()
+        else:
+            ch_name = 'CH' + str(self.ch_state.index(1) + 1)
+        if ch_name != None and self.y_data.has_key(ch_name):
+            self.y = self.y_data[ch_name]
+            self.ax_plot.clear()
+            self.ax_plot.plot(self.x, self.y)
+            self.ax_plot.set_xlim(min(self.x), max(self.x))
+            self.ax_plot.set_ylim(min(self.y), max(self.y))
+            self.fig_plot.canvas.draw()
+
+    def save_btn(self):
+        if sum(self.ch_state) == 0:
+            return None
+        elif sum(self.ch_state) != 1:
+            ch_name = self.ch_which.currentText()
+        else:
+            ch_name = 'CH' + str(self.ch_state.index(1) + 1)
+        output_file_name = datetime.datetime.now().strftime('%Y_%m_%d_%H%M%S')
+
+        output_y = ['CH' + str(i + 1) for i in range(4) if self.ch_state[i] == 1]
+        if self.y_data.has_key(ch_name):
+            output_y.remove(ch_name)
+            output_y.insert(0, ch_name)
+        data_file = open(output_file_name, 'w')
+        line = 'Time,'
+        for i in output_y:
+            line = line + i + ','
+        line = line[:-1] + '\n'
+        data_file.write(line)
+
+        for i in range(len(self.x)):
+            line = str(self.x[i]) + ','
+            for j in output_y:
+                line = line + str(self.y_data[j][i]) + ','
+            line = line[:-1] + '\n'
+            data_file.write(line)
+
+        data_file.close()
+        message = 'Time\n'
+        for i in output_y:
+            message = message + i + '\n'
+        self.fit_result_te.setText('Saved:\n' + message)
 
     def keyPressEvent(self, QKeyEvent):
         event_value = QKeyEvent.key()
-        print event_value
         if event_value in [Qt.Key_Return, Qt.Key_Enter]:
             self.update_data()
         if event_value in range(49, 53):
             self.ch_cb_grounp[event_value - 49].click()
-            self.update_data()
-        if QKeyEvent == Qt.Key_Left:
-            print 'left'
+        if event_value == Qt.Key_Q:
+            sys.exit(MDO_GUI.exec_())
+
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
