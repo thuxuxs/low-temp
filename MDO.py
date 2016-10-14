@@ -469,25 +469,12 @@ class MDO_MainWindow(QWidget):
         if event_value in range(49, 53):
             self.ch_cb_grounp[event_value - 49].click()
         if event_value == Qt.Key_Q:
-            sys.exit(MDO_GUI.exec_())
+            sys.exit()
 
 
-class MainWindow(QMainWindow):
-    def __init__(self, parent=None):
-        QMainWindow.__init__(self, parent)
-        self.resize(200, 200)
-        self.main_frame = QWidget()
-        vbox = QVBoxLayout()
-        self.mdo1 = MDO_MainWindow(self.main_frame)
-        self.mdo2 = MDO_MainWindow(self.main_frame)
-        vbox.addWidget(self.mdo1)
-        vbox.addWidget(self.mdo2)
-        self.main_frame.setLayout(vbox)
-        self.setCentralWidget(self.main_frame)
+if __name__=='__main__':
+    MDO_GUI = QApplication(sys.argv)
+    mainwindow = MDO_MainWindow(GPIB='USB0::0x0699::0x0454::C021335::INSTR')
+    mainwindow.show()
 
-
-MDO_GUI = QApplication(sys.argv)
-mainwindow = MDO_MainWindow(GPIB='USB0::0x0699::0x0454::C021335::INSTR')
-mainwindow.show()
-
-sys.exit(MDO_GUI.exec_())
+    sys.exit(MDO_GUI.exec_())
