@@ -219,22 +219,25 @@ class MDO_MainWindow(QWidget):
         self.fit_type3.move(880, 465)
 
     def connect_event(self):
-        self.ch1_cb.clicked.connect(lambda: self.ch_cb_changed(0))
-        self.ch2_cb.clicked.connect(lambda: self.ch_cb_changed(1))
-        self.ch3_cb.clicked.connect(lambda: self.ch_cb_changed(2))
-        self.ch4_cb.clicked.connect(lambda: self.ch_cb_changed(3))
         self.file_fit_file.clicked.connect(self.select_file_plot)
         self.fit_type1.clicked.connect(lambda: self.lorentz_btn(0))
         self.fit_type2.clicked.connect(lambda: self.lorentz_btn(1))
-        self.update_btn.clicked.connect(self.update_data)
-        self.h_plus.clicked.connect(lambda: self.hor_scal('+'))
-        self.h_minus.clicked.connect(lambda: self.hor_scal('-'))
-        self.h_slider.sliderReleased.connect(self.h_slider_release)
-        self.v_plus.clicked.connect(lambda: self.ver_scal('+'))
-        self.v_minus.clicked.connect(lambda: self.ver_scal('-'))
-        self.v_slider.sliderReleased.connect(self.v_slider_release)
-        self.fit_mdo.clicked.connect(self.fit_btn)
-        self.save.clicked.connect(self.save_btn)
+        if mode == 'has_visa':
+            self.ch1_cb.clicked.connect(lambda: self.ch_cb_changed(0))
+            self.ch2_cb.clicked.connect(lambda: self.ch_cb_changed(1))
+            self.ch3_cb.clicked.connect(lambda: self.ch_cb_changed(2))
+            self.ch4_cb.clicked.connect(lambda: self.ch_cb_changed(3))
+            self.update_btn.clicked.connect(self.update_data)
+            self.h_plus.clicked.connect(lambda: self.hor_scal('+'))
+            self.h_minus.clicked.connect(lambda: self.hor_scal('-'))
+            self.h_slider.sliderReleased.connect(self.h_slider_release)
+            self.v_plus.clicked.connect(lambda: self.ver_scal('+'))
+            self.v_minus.clicked.connect(lambda: self.ver_scal('-'))
+            self.v_slider.sliderReleased.connect(self.v_slider_release)
+            self.fit_mdo.clicked.connect(self.fit_btn)
+            self.save.clicked.connect(self.save_btn)
+
+
 
     def read_data_from_file(self, file_name, type=1):
         '''
@@ -461,7 +464,7 @@ class MDO_MainWindow(QWidget):
 
     def keyPressEvent(self, QKeyEvent):
         event_value = QKeyEvent.key()
-        if event_value in [Qt.Key_Return, Qt.Key_Enter]:
+        if event_value in [Qt.Key_Return, Qt.Key_Enter] and mode == 'has_visa':
             self.update_data()
         if event_value in range(49, 53):
             self.ch_cb_grounp[event_value - 49].click()
