@@ -35,6 +35,7 @@ class MDO_MainWindow(QWidget):
     def __init__(self, parent=None, GPIB=None):
         QWidget.__init__(self, parent)
         self.setWindowTitle('MDO')
+        # self.setWindowFlags(Qt.WindowDoesNotAcceptFocus)
         self.GPIB = GPIB
         self.resize(1000, 500)
         self.create_ui()
@@ -75,11 +76,13 @@ class MDO_MainWindow(QWidget):
                 self.xincr = float(
                     str(self.inst.ask('DATA:SOURCE CH' + str(i + 1) + ';:WFMOutpre:xincr?')).split(' ')[1])
                 self.xzero = float(str(self.inst.ask(':WFMOutpre:XZEro?')).split(' ')[1])
+                self.yzero = float(str(self.inst.ask(':WFMOutpre:yzero?')).split(' ')[1])
+                self.ymult = float(str(self.inst.ask(':WFMOutpre:YMUlt?')).split(' ')[1])
                 self.x = self.xzero + self.xincr * pl.linspace(0, 10000, 10000)
                 self.y_bite = self.get_data(i)
-
+                self.y_data['CH' + str(i + 1)] = self.yzero + self.ymult * np.array(self.y_bite)
                 self.ax_plot.plot(self.x, self.y_bite, self.ch_color[i])
-
+        print self.y_data.keys()
         self.ax_plot.set_xlim(self.x[0], self.x[-1])
         self.ax_plot.set_ylim(-127, 128)
         self.fig_plot.canvas.draw()
@@ -208,7 +211,6 @@ class MDO_MainWindow(QWidget):
         self.fit_type2.move(800, 465)
         self.fit_type3 = QPushButton('Lorentz-3', self)
         self.fit_type3.move(880, 465)
-
     def connect_event(self):
         self.ch1_cb.clicked.connect(lambda: self.ch_cb_changed(0))
         self.ch2_cb.clicked.connect(lambda: self.ch_cb_changed(1))
@@ -221,6 +223,7 @@ class MDO_MainWindow(QWidget):
         self.h_plus.clicked.connect(lambda: self.hor_scal('+'))
         self.h_minus.clicked.connect(lambda: self.hor_scal('-'))
         self.h_slider.sliderReleased.connect(self.h_slider_release)
+
     def read_data_from_file(self, file_name, type=1):
         '''
         type 1: for data saved from floor 3;
@@ -346,16 +349,16 @@ class MDO_MainWindow(QWidget):
             state = 0
             self.ch_label_group[ch].setVisible(False)
         self.inst.write('select:ch' + str(ch + 1) + ' ' + str(state))
-        self.update_data()
+
 
     def hor_scal(self, vec):
-        print vec
+        # print vec
         if 1 in self.ch_state:
-            print 'DATA:SOURCE CH' + str(self.ch_state.index(1) + 1) + ';:HORizontal:SCAle?'
+            # print 'DATA:SOURCE CH' + str(self.ch_state.index(1) + 1) + ';:HORizontal:SCAle?'
             present = float(
                 str(self.inst.ask('DATA:SOURCE CH' + str(self.ch_state.index(1) + 1) + ';:HORizontal:SCAle?')).split(
                     ' ')[1])
-            print present
+            # print present
             if vec == '+':
                 scale = str(present / 2.0)
             else:
@@ -364,8 +367,25 @@ class MDO_MainWindow(QWidget):
             self.update_data()
 
     def h_slider_release(self):
-        print self.h_slider.value()
-        self.h_slider.setValue(0)
+        # print self.h_slider.value()
+        if 1 in self.ch_state:
+            present = float(
+                str(self.inst.ask('DATA:SOURCE CH' + str(self.ch_state.index(1) + 1) + ';:Horizontal:position?')).split(
+                    ' ')[1])
+            self.inst.write('horizontal:delay:mode off;:Horizontal:position ' + str(present + self.h_slider.value()))
+            self.h_slider.setValue(0)
+            self.update_data()
+
+    def keyPressEvent(self, QKeyEvent):
+        event_value = QKeyEvent.key()
+        print event_value
+        if event_value in [Qt.Key_Return, Qt.Key_Enter]:
+            self.update_data()
+        if event_value in range(49, 53):
+            self.ch_cb_grounp[event_value - 49].click()
+            self.update_data()
+        if QKeyEvent == Qt.Key_Left:
+            print 'left'
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
