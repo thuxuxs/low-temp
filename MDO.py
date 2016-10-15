@@ -28,8 +28,6 @@ class MDO_MainWindow(QWidget):
     def __init__(self, parent=None, GPIB=None):
         QWidget.__init__(self, parent)
         self.setWindowTitle('MDO')
-        # self.setWindowFlags(Qt.WindowDoesNotAcceptFocus)
-        # self.setFocusPolicy(Qt.NoFocus)
         self.GPIB = GPIB
         self.resize(1000, 500)
         self.create_ui()
