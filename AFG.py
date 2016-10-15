@@ -1,20 +1,11 @@
 import sys
-import numpy as np
 import pylab as pl
 from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
-from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_qt5agg import (
-    FigureCanvasQTAgg as FigureCanvas,
-    NavigationToolbar2QT as NavigationToolbar)
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
+    FigureCanvasQTAgg as FigureCanvas)
 from PyQt5.Qt import *
 from PyQt5.QtCore import *
-import time
-import datetime
-from scipy.optimize import leastsq
+from data_gen import gen
 
 global mode
 try:
@@ -31,10 +22,13 @@ class AFG_MainWindow(QWidget):
         self.GPIB=GPIB
         self.resize(1000,500)
         self.create_ui()
+        if mode == 'has_visa':
+            self.get_inst()
 
     def create_ui(self):
         self.create_widget_plot()
         self.create_input_widget()
+        self.start_btn.clicked.connect(self.start)
 
     def create_widget_plot(self):
         self.fig = Figure(figsize=(6, 6), dpi=80)
@@ -42,6 +36,7 @@ class AFG_MainWindow(QWidget):
         self.ax = self.fig.add_axes([0, 0, 1, 1], axisbg=(0.6, 0.7, 0.8))
         self.canvas = FigureCanvas(self.fig)
         self.canvas.setParent(self)
+        # self.ax.plot(pl.linspace(0,6,100),pl.sin(pl.linspace(0,6,100)))
         self.canvas.show()
 
     def create_input_widget(self):
@@ -96,15 +91,44 @@ class AFG_MainWindow(QWidget):
         self.setStyleSheet(
             "QLabel,QLineEdit,QComboBox,QPushButton{font-size:24px;font-family:Roman times;font-weight:bold;}")
 
+    def format_data(self):
+        self.real_freq = float(self.freq_text.text()) * 10 ** (
+        3 * ['Hz', 'KHz', 'MHz'].index(self.freq_cb.currentText()))
+        self.real_high = float(self.high_text.text()) * 10 ** (-3 * ['V', 'mV'].index(self.high_cb.currentText()))
+        self.real_low = float(self.low_text.text()) * 10 ** (-3 * ['V', 'mV'].index(self.low_cb.currentText()))
+        self.real_off = float(self.off_text.text()) * 10 ** (-3 * ['V', 'mV'].index(self.off_cb.currentText()))
+
+    def start(self):
+        self.format_data()
+        self.y_data = gen(self.shape_cb.currentText()) * pl.absolute(self.real_high - self.real_low) / 2 + self.real_off
+        self.x_data = pl.linspace(0, 1 / self.real_freq, pl.size(self.y_data))
+        self.ax.clear()
+        self.ax.plot(self.x_data * 1000, self.y_data)
+        print len(self.x_data)
+        print len(self.y_data)
+        self.canvas.draw()
+        if mode == 'has_visa':
+            self.inst.write('source1:function:shape ' + self.shape_cb.currentText())
+            self.inst.write('source1:frequency:fixed ' + self.freq_text.text() + self.freq_cb.currentText())
+            self.inst.write(
+                'source1:voltage:level:immediate:high ' + self.high_text.text() + self.high_cb.currentText())
+            self.inst.write('source1:voltage:level:immediate:low ' + self.low_text.text() + self.low_cb.currentText())
+            self.inst.write(
+                'source1:voltage:level:immediate:offset ' + self.off_text.text() + self.off_cb.currentText())
+            self.inst.write('output on')
+
+    def get_inst(self):
+        self.inst = visa.ResourceManager().open_resource(self.GPIB)
+
     def keyPressEvent(self,QKeyEvent):
         event_value=QKeyEvent.key()
         if event_value==Qt.Key_Q:
             sys.exit()
         if event_value in [Qt.Key_Return, Qt.Key_Enter]:
-            print 'hello'
+            self.start_btn.click()
 
 if __name__=='__main__':
     AFG_GUI=QApplication(sys.argv)
-    mainwindow=AFG_MainWindow(GPIB='AFG_GPIB')
+    mainwindow = AFG_MainWindow(GPIB='GPIB0::1::INSTR')
     mainwindow.show()
     sys.exit(AFG_GUI.exec_())

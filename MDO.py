@@ -233,8 +233,6 @@ class MDO_MainWindow(QWidget):
             self.fit_mdo.clicked.connect(self.fit_btn)
             self.save.clicked.connect(self.save_btn)
 
-
-
     def read_data_from_file(self, file_name, type=1):
         '''
         type 1: for data saved from floor 3;

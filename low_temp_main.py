@@ -1,10 +1,5 @@
 import sys
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
 from PyQt5.Qt import *
-from PyQt5.QtCore import *
-
 from MDO import MDO_MainWindow
 from AFG import AFG_MainWindow
 
@@ -19,7 +14,7 @@ class MainWindow(QMainWindow):
 
     def create_instruments(self):
         self.MDO = MDO_MainWindow(self, GPIB='USB0::0x0699::0x0454::C021335::INSTR')
-        self.AFG=AFG_MainWindow(self)
+        self.AFG = AFG_MainWindow(self, GPIB='GPIB0::1::INSTR')
         self.MDO.move(0,20)
         self.AFG.move(0,20)
         self.MDO.setVisible(False)
