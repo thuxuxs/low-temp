@@ -29,7 +29,7 @@ class AFG_MainWindow(QWidget):
         self.create_widget_plot()
         self.create_input_widget()
         self.start_btn.clicked.connect(self.start)
-
+        self.on_btn.clicked.connect(self.on)
     def create_widget_plot(self):
         self.fig = Figure(figsize=(6, 6), dpi=80)
         self.fig.patch.set_color('w')
@@ -71,6 +71,7 @@ class AFG_MainWindow(QWidget):
         self.shape_cb.addItems(['RAMP', 'SIN', 'SQU'])
 
         self.start_btn = QPushButton('Start', self.input_widget)
+        self.on_btn = QPushButton('On', self.input_widget)
 
         self.input_widget_layout.addWidget(self.freq_lab, 0, 0)
         self.input_widget_layout.addWidget(self.high_lab, 1, 0)
@@ -86,7 +87,7 @@ class AFG_MainWindow(QWidget):
         self.input_widget_layout.addWidget(self.off_cb, 3, 2)
         self.input_widget_layout.addWidget(self.shape_cb, 4, 0, 4, 3)
         self.input_widget_layout.addWidget(self.start_btn, 10, 0, 10, 3)
-
+        self.input_widget_layout.addWidget(self.on_btn, 20, 0, 20, 3)
         self.input_widget.setLayout(self.input_widget_layout)
         self.setStyleSheet(
             "QLabel,QLineEdit,QComboBox,QPushButton{font-size:24px;font-family:Roman times;font-weight:bold;}")
@@ -115,7 +116,15 @@ class AFG_MainWindow(QWidget):
             self.inst.write('source1:voltage:level:immediate:low ' + self.low_text.text() + self.low_cb.currentText())
             self.inst.write(
                 'source1:voltage:level:immediate:offset ' + self.off_text.text() + self.off_cb.currentText())
-            self.inst.write('output on')
+
+    def on(self):
+        if mode == 'has_visa':
+            if self.on_btn.text() == 'On':
+                self.inst.write('output on')
+                self.on_btn.setText('Off')
+            else:
+                self.inst.write('output off')
+                self.on_btn.setText('On')
 
     def get_inst(self):
         self.inst = visa.ResourceManager().open_resource(self.GPIB)
