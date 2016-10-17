@@ -70,10 +70,11 @@ class MDO_MainWindow(QWidget):
                     str(self.inst.ask('DATA:SOURCE CH' + str(i + 1) + ';:WFMOutpre:xincr?')).split(' ')[1])
                 self.xzero = float(str(self.inst.ask(':WFMOutpre:XZEro?')).split(' ')[1])
                 self.yzero = float(str(self.inst.ask(':WFMOutpre:yzero?')).split(' ')[1])
+                self.y_position = float(str(self.inst.ask(':WFMOutpre:yof?')).split(' ')[1])
                 self.ymult = float(str(self.inst.ask(':WFMOutpre:YMUlt?')).split(' ')[1])
                 self.x = self.xzero + self.xincr * pl.linspace(0, 10000, 10000)
                 self.y_bite = self.get_data(i)
-                self.y_data['CH' + str(i + 1)] = self.yzero + self.ymult * np.array(self.y_bite)
+                self.y_data['CH' + str(i + 1)] = self.yzero + self.ymult * (np.array(self.y_bite) - self.y_position)
                 self.ax_plot.plot(self.x, self.y_bite, self.ch_color[i])
         # print self.y_data.keys()
         if 1 in self.ch_state:
@@ -330,6 +331,7 @@ class MDO_MainWindow(QWidget):
         self.ax_fit.plot(self.fit_x, self.fit_y / para[-1], linewidth=3)
         self.canvas_fit.draw()
         print para
+        self.fit_result_te.setText(str(para[0] / (para[1] + para[2])))
 
     def select_file_plot(self):
         self.selected_file = QFileDialog.getOpenFileName(self, 'Select Data', '.')[0]
